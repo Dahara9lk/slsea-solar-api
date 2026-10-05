@@ -4,6 +4,12 @@
   "description": "The coursework of SLSEA Solar Generation API (NB6007CEM)",
   "main": "index.js",
   "scripts": {
+    "dev": "nodemon index.js",
+    "start": "node index.js",
+    "db:reset": "node db/reset.js",
+    "db:seed": "node db/seed/index.js",
+    "db:verify": "node db/verify.js",
+    "db:rebuild": "npm run db:reset && npm run db:seed && npm run db:verify",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
