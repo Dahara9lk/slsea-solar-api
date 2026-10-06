@@ -1,0 +1,37 @@
+{
+  "name": "slsea-solar-api",
+  "version": "1.0.0",
+  "description": "The coursework of SLSEA Solar Generation API (NB6007CEM)",
+  "main": "index.js",
+  "scripts": {
+    "dev": "nodemon index.js",
+    "start": "node index.js",
+    "db:reset": "node db/reset.js",
+    "db:seed": "node db/seed/index.js",
+    "db:verify": "node db/verify.js",
+    "db:rebuild": "npm run db:reset && npm run db:seed && npm run db:verify",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Dahara9lk/slsea-solar-api.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Dahara9lk/slsea-solar-api/issues"
+  },
+  "homepage": "https://github.com/Dahara9lk/slsea-solar-api#readme",
+  "dependencies": {
+    "better-sqlite3": "^13.0.3",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "swagger-ui-express": "^5.0.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}
