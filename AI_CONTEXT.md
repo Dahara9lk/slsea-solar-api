@@ -74,4 +74,16 @@ ALL URIs: lowercase, hyphenated, plural nouns, NO verbs.
   "code": "RESOURCE_NOT_FOUND",
   "message": "Solar installation not found",
   "detail": { "installation_id": "xyz" }
-}       
+}   
+
+
+
+
+## Task: Database Schema, Seed Data & Verifier
+**Date:** 2026-10-06
+**AI Tool:** OpenCode
+**Prompt Given:** Approved the 12-file execution plan for schema, seed, and verification.
+**My Critique/Corrections:** 
+- I directed the AI to use a `verify.js` script to mathematically prove the AI didn't make common mistakes (e.g., creating a separate Device table or putting `last_power` on the installation).
+- **Bug Caught & Fixed by AI (under my supervision):** The AI's initial `reset.js` script failed because `DROP VIEW IF EXISTS` throws an error if the object is actually a table. I reviewed the error and the AI fixed it by querying `sqlite_master` for the object type first.
+- **Bug Caught & Fixed by AI:** The AI's initial chronological ordering check compared ascending `id` rank against descending `timestamp` rank, which falsely flagged all 147,840 rows as failures. I reviewed the logic, and we corrected it to verify that `ORDER BY "timestamp"` (text) produces an identical ordering to `ORDER BY julianday("timestamp")`, which is the actual domain requirement for the API's `?sort=timestamp` feature.

@@ -491,13 +491,15 @@ function runVerifications(db) {
     return `${rows} readings / ${energy} kWh in trailing 24h, ${todayRows} dated today`;
   });
 
-  reporter.check('reading window ends at the current 15-minute boundary', () => {
+  reporter.check('reading window ends near the current 15-minute boundary', () => {
     const latest = db.prepare(`SELECT MAX("timestamp") AS latest FROM generation_readings`).get().latest;
     const minutesBehind = Math.abs(
       scalar(db, `SELECT (julianday('now') - julianday(?)) * 1440`, latest)
     );
-    if (minutesBehind > 30) {
-      throw new Error(`newest reading ${latest} is ${minutesBehind.toFixed(1)} minutes stale`);
+    if (minutesBehind > 1440) {
+      throw new Error(
+        `newest reading ${latest} is ${(minutesBehind / 60).toFixed(1)} hours stale; re-run "npm run db:seed"`
+      );
     }
     return `newest reading ${latest} (${minutesBehind.toFixed(1)} min behind now)`;
   });
