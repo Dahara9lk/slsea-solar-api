@@ -17,12 +17,20 @@ function formatDuration(startedAt) {
 }
 
 function assertEmpty(db) {
-  const { count } = db.prepare(`SELECT COUNT(*) AS count FROM solar_installations`).get();
-  if (count > 0) {
-    throw new Error(
-      `Database already holds ${count} solar installations. Run "npm run db:reset" before seeding again.`
-    );
+  let count;
+  try {
+    ({ count } = db.prepare(`SELECT COUNT(*) AS count FROM solar_installations`).get());
+  } catch (error) {
+    if (/no such table/i.test(error.message)) {
+      return true;
+    }
+    throw error;
   }
+  if (count > 0) {
+    console.log('Database already seeded, skipping...');
+    return false;
+  }
+  return true;
 }
 
 function writeMeta(db, meta) {
@@ -39,7 +47,10 @@ function runSeed({ silent = false } = {}) {
   const startedAt = Date.now();
   const db = getDb();
   applySchema(db);
-  assertEmpty(db);
+  const needsSeed = assertEmpty(db);
+  if (!needsSeed) {
+    return null;
+  }
 
   const anchorMs = floorToInterval(Date.now(), config.seed.intervalMinutes);
   const steps = [];
