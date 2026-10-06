@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "nodemon index.js",
-    "start": "node index.js",
+    "start": "npm run db:rebuild && node index.js",
     "db:reset": "node db/reset.js",
     "db:seed": "node db/seed/index.js",
     "db:verify": "node db/verify.js",
