@@ -4,8 +4,9 @@ A REST API for monitoring rooftop solar generation across Sri Lanka, built for t
 
 ## Live URLs
 
-- **Live API URL:** [Your Render/Railway URL]
-- **Live Swagger UI:** [Your URL]/api-docs
+- **Live API URL:** https://slsea-solar-api-qy9n.onrender.com
+- **Live Swagger UI:** https://slsea-solar-api-qy9n.onrender.com/api-docs
+- **OpenAPI Spec:** https://slsea-solar-api-qy9n.onrender.com/openapi.json
 
 ## Tech Stack
 
