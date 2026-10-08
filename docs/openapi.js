@@ -569,7 +569,6 @@ module.exports = {
           power_kw: { type: 'number', example: 6.2 },
           energy_kwh: { type: 'number', example: 1.55 },
           voltage: { type: 'number', example: 231.4 },
-          source: { type: 'string', enum: ['meter', 'manual', 'simulator'] },
         },
       },
       GenerationReadingInput: {

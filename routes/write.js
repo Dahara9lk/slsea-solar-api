@@ -101,9 +101,9 @@ router.post('/solar-installations/:installationId/readings', deviceWrite, (req, 
       result = db
         .prepare(
           `INSERT INTO generation_readings
-             (installation_id, "timestamp", power_kw, energy_kwh, voltage, source)
+             (installation_id, "timestamp", power_kw, energy_kwh, voltage)
            VALUES
-             (@installation_id, @timestamp, @power_kw, @energy_kwh, @voltage, 'meter')`
+             (@installation_id, @timestamp, @power_kw, @energy_kwh, @voltage)`
         )
         .run({
           installation_id: installationId,
@@ -139,7 +139,6 @@ router.post('/solar-installations/:installationId/readings', deviceWrite, (req, 
       power_kw: payload.powerKw,
       energy_kwh: payload.energyKwh,
       voltage: payload.voltage,
-      source: 'meter',
     });
   } catch (error) {
     next(error);

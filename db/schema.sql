@@ -61,7 +61,6 @@ CREATE TABLE IF NOT EXISTS generation_readings (
   power_kw        REAL NOT NULL CHECK (power_kw >= 0 AND power_kw <= 500),
   energy_kwh      REAL NOT NULL CHECK (energy_kwh >= 0),
   voltage         REAL NOT NULL CHECK (voltage >= 180 AND voltage <= 280),
-  source          TEXT NOT NULL DEFAULT 'meter' CHECK (source IN ('meter', 'manual', 'simulator')),
   FOREIGN KEY (installation_id) REFERENCES solar_installations (id) ON DELETE RESTRICT ON UPDATE CASCADE,
   UNIQUE (installation_id, "timestamp")
 );
@@ -147,10 +146,10 @@ JOIN provinces p ON p.id = d.province_id;
 CREATE VIEW IF NOT EXISTS v_installation_last_reading AS
 SELECT r.*
 FROM generation_readings r
-JOIN (
-  SELECT installation_id, MAX("timestamp") AS last_timestamp
+WHERE r."timestamp" = (
+  SELECT "timestamp"
   FROM generation_readings
-  GROUP BY installation_id
-) latest
-  ON latest.installation_id = r.installation_id
- AND latest.last_timestamp = r."timestamp";
+  WHERE installation_id = r.installation_id
+  ORDER BY "timestamp" DESC
+  LIMIT 1
+);

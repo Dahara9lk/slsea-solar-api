@@ -21,7 +21,7 @@ const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
 const SITE_TYPES = ['residential_rooftop', 'commercial_rooftop', 'industrial_rooftop', 'ground_mount'];
 const STATUSES = ['active', 'maintenance', 'decommissioned'];
 const READING_COLUMNS =
-  'r.id, r.installation_id, r."timestamp" AS timestamp, r.power_kw, r.energy_kwh, r.voltage, r.source';
+  'r.id, r.installation_id, r."timestamp" AS timestamp, r.power_kw, r.energy_kwh, r.voltage';
 
 function parseIdParam(req, key, label) {
   const raw = req.params[key];
@@ -524,8 +524,10 @@ router.get('/solar-installations/:installationId/last-reading', readScope, (req,
     const reading = db
       .prepare(
         `SELECT ${READING_COLUMNS}
-         FROM v_installation_last_reading r
-         WHERE r.installation_id = ?`
+         FROM generation_readings r
+         WHERE r.installation_id = ?
+         ORDER BY r."timestamp" DESC
+         LIMIT 1`
       )
       .get(installationId);
     if (reading === undefined) {
