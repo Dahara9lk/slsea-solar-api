@@ -37,9 +37,9 @@ function seedReadings(db, options) {
 
   const insert = db.prepare(
     `INSERT INTO generation_readings
-       (installation_id, "timestamp", power_kw, energy_kwh, voltage, source)
+       (installation_id, "timestamp", power_kw, energy_kwh, voltage)
      VALUES
-       (@installation_id, @timestamp, @power_kw, @energy_kwh, @voltage, @source)`
+       (@installation_id, @timestamp, @power_kw, @energy_kwh, @voltage)`
   );
 
   return db.transaction(() => {
@@ -80,7 +80,6 @@ function seedReadings(db, options) {
           power_kw: powerKw,
           energy_kwh: energyKwh,
           voltage,
-          source: 'meter',
         });
 
         totalRows += 1;

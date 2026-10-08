@@ -26,7 +26,7 @@ function printBanner(status) {
   console.log('  SLSEA Solar Generation API');
   console.log(`  ${line}`);
   console.log(`  base path   ${base}          (root, no version prefix)`);
-  console.log(`  docs        ${base}/docs`);
+  console.log(`  docs        ${base}/api-docs  (alias: /docs)`);
   console.log(`  spec        ${base}/openapi.json`);
   console.log(`  health      ${base}/health`);
   console.log(`  environment ${config.env}`);

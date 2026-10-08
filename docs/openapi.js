@@ -42,6 +42,11 @@ const LIMIT_PARAM = {
   schema: { type: 'integer', minimum: 1, maximum: 200, default: 20 },
   description: 'Number of records per page (maximum 200).',
 };
+const ANALYTICAL_LIMIT_PARAM = {
+  ...LIMIT_PARAM,
+  schema: { type: 'integer', minimum: 1, maximum: 200, default: 50 },
+  description: 'Number of readings per page (default 50, maximum 200).',
+};
 const ORDER_PARAM = {
   name: 'order',
   in: 'query',
@@ -109,6 +114,31 @@ const READ_RESPONSES = (extra = {}) => ({
   ...Object.fromEntries(Object.entries(extra).filter(([key]) => key !== '200')),
 });
 
+const ETAG_HEADER = {
+  description: 'Strong entity tag derived from the resource payload.',
+  schema: { type: 'string', example: '"4acc71e0547112eb432f0a36fb1924c4a738cb49"' },
+};
+const IF_NONE_MATCH_PARAM = {
+  name: 'If-None-Match',
+  in: 'header',
+  required: false,
+  schema: { type: 'string' },
+  description: 'When it matches the current ETag (a quoted tag, a weak `W/` tag, a comma-separated list, or `*`), the server returns 304.',
+};
+const NOT_MODIFIED = {
+  description: 'The supplied If-None-Match matched; the resource is unchanged. Empty body, no Content-Type.',
+  headers: { ETag: ETAG_HEADER },
+};
+function cachedJsonResponse(description, schema) {
+  return {
+    description,
+    headers: { ETag: ETAG_HEADER },
+    content: { 'application/json': { schema } },
+  };
+}
+const CONDITIONAL_READ_RESPONSES = (description, schema) =>
+  READ_RESPONSES({ 200: cachedJsonResponse(description, schema), 304: NOT_MODIFIED });
+
 module.exports = {
   openapi: '3.0.3',
   info: {
@@ -130,9 +160,13 @@ module.exports = {
       '',
       'Every timestamp is an ISO-8601 instant in UTC with a trailing `Z`. Because the format is fixed-width, lexicographic ordering equals chronological ordering, so `sort=timestamp` is always correct.',
       '',
+      '## Conditional GET',
+      '',
+      'Single-resource endpoints (province, district, substation, solar installation) return a strong `ETag` header. Send it back in `If-None-Match` to receive **304 Not Modified** with an empty body when the resource has not changed.',
+      '',
       '## Interactive documentation',
       '',
-      'Swagger UI is served at `/docs`; this document is available unauthenticated at `/openapi.json`.',
+      'Swagger UI is served at `/api-docs` (alias `/docs`); this document is available unauthenticated at `/openapi.json`.',
       '',
       '## Demo tokens',
       '',
@@ -235,8 +269,9 @@ module.exports = {
       get: {
         tags: ['Geography'],
         summary: 'Retrieve one province',
-        parameters: [PROVINCE_ID_PARAM],
-        responses: READ_RESPONSES({ 200: jsonResponse('The province', { $ref: '#/components/schemas/Province' }) }),
+        description: 'Conditional GET: honours If-None-Match and returns 304 when the province is unchanged.',
+        parameters: [PROVINCE_ID_PARAM, IF_NONE_MATCH_PARAM],
+        responses: CONDITIONAL_READ_RESPONSES('The province', { $ref: '#/components/schemas/Province' }),
       },
     },
     '/districts': {
@@ -259,8 +294,9 @@ module.exports = {
       get: {
         tags: ['Geography'],
         summary: 'Retrieve one district',
-        parameters: [DISTRICT_ID_PARAM],
-        responses: READ_RESPONSES({ 200: jsonResponse('The district', { $ref: '#/components/schemas/District' }) }),
+        description: 'Conditional GET: honours If-None-Match and returns 304 when the district is unchanged.',
+        parameters: [DISTRICT_ID_PARAM, IF_NONE_MATCH_PARAM],
+        responses: CONDITIONAL_READ_RESPONSES('The district', { $ref: '#/components/schemas/District' }),
       },
     },
     '/districts/{district-id}/generation-summary': {
@@ -294,10 +330,9 @@ module.exports = {
       get: {
         tags: ['Geography'],
         summary: 'Retrieve one grid substation',
-        parameters: [SUBSTATION_ID_PARAM],
-        responses: READ_RESPONSES({
-          200: jsonResponse('The grid substation', { $ref: '#/components/schemas/GridSubstation' }),
-        }),
+        description: 'Conditional GET: honours If-None-Match and returns 304 when the substation is unchanged.',
+        parameters: [SUBSTATION_ID_PARAM, IF_NONE_MATCH_PARAM],
+        responses: CONDITIONAL_READ_RESPONSES('The grid substation', { $ref: '#/components/schemas/GridSubstation' }),
       },
     },
     '/solar-installations': {
@@ -352,10 +387,9 @@ module.exports = {
       get: {
         tags: ['Installations'],
         summary: 'Retrieve one solar installation',
-        parameters: [INSTALLATION_ID_PARAM],
-        responses: READ_RESPONSES({
-          200: jsonResponse('The solar installation', { $ref: '#/components/schemas/SolarInstallation' }),
-        }),
+        description: 'Conditional GET: honours If-None-Match and returns 304 when the installation is unchanged.',
+        parameters: [INSTALLATION_ID_PARAM, IF_NONE_MATCH_PARAM],
+        responses: CONDITIONAL_READ_RESPONSES('The solar installation', { $ref: '#/components/schemas/SolarInstallation' }),
       },
     },
     '/solar-installations/{installation-id}/readings': {
@@ -367,7 +401,7 @@ module.exports = {
         parameters: [
           INSTALLATION_ID_PARAM,
           PAGE_PARAM,
-          LIMIT_PARAM,
+          ANALYTICAL_LIMIT_PARAM,
           START_TIME_PARAM,
           END_TIME_PARAM,
           SORT_PARAM,
@@ -390,8 +424,9 @@ module.exports = {
         summary: 'Append a generation reading',
         description: [
           'Device write path. The token must carry the `installation-write` scope and its',
-          '`installation_id` claim must equal the `installation-id` in the URI, otherwise 403',
-          '`DEVICE_SCOPE_MISMATCH` is returned **before** any existence check is performed.',
+          '`installation_id` claim must equal the `installation_id` path parameter, otherwise 403',
+          '`FORBIDDEN` with `message: "Installation ID mismatch"` and',
+          '`detail: { expected, received }` is returned **before** any existence check is performed.',
           'A repeated timestamp for the same installation is rejected with 409 `DUPLICATE_READING`.',
         ].join(' '),
         security: [{ DeviceWrite: [] }],
@@ -411,7 +446,7 @@ module.exports = {
           400: VALIDATION_ERROR,
           401: UNAUTHORIZED,
           403: errorResponse(
-            'INSUFFICIENT_SCOPE (analyst token) or DEVICE_SCOPE_MISMATCH (token bound to another installation)'
+            'INSUFFICIENT_SCOPE (analyst token) or FORBIDDEN / "Installation ID mismatch" (token bound to another installation)'
           ),
           404: NOT_FOUND,
           409: errorResponse('A reading already exists for this installation and timestamp'),
@@ -569,7 +604,6 @@ module.exports = {
           power_kw: { type: 'number', example: 6.2 },
           energy_kwh: { type: 'number', example: 1.55 },
           voltage: { type: 'number', example: 231.4 },
-          source: { type: 'string', enum: ['meter', 'manual', 'simulator'] },
         },
       },
       GenerationReadingInput: {
@@ -589,8 +623,10 @@ module.exports = {
       },
       GenerationSummary: {
         type: 'object',
+        required: ['district_id', 'district_name', 'current_total_power_kw', 'today_total_energy_kwh', 'installation_count'],
         properties: {
           district_id: { type: 'integer', example: 1 },
+          district_name: { type: 'string', example: 'Colombo' },
           current_total_power_kw: { type: 'number', example: 132.47 },
           today_total_energy_kwh: { type: 'number', example: 1183.62 },
           installation_count: { type: 'integer', example: 24 },

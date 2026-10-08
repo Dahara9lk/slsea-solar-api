@@ -42,14 +42,13 @@ function createApp() {
   app.get('/openapi.json', (req, res) => {
     res.json(openapi);
   });
-  app.use(
-    '/docs',
-    swaggerUi.serve,
-    swaggerUi.setup(openapi, {
-      customSiteTitle: 'SLSEA Solar Generation API',
-      swaggerOptions: { persistAuthorization: true },
-    })
-  );
+
+  const swaggerOptions = {
+    customSiteTitle: 'SLSEA Solar Generation API',
+    swaggerOptions: { persistAuthorization: true },
+  };
+  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(openapi, swaggerOptions));
+  app.use('/docs', swaggerUi.serve, swaggerUi.setup(openapi, swaggerOptions));
 
   app.use('/auth', authRouter);
   app.use(writeRouter);

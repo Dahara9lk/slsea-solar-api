@@ -1,9 +1,10 @@
 'use strict';
 
+const crypto = require('crypto');
 const express = require('express');
 const config = require('../config');
 const { getDb } = require('../db/connection');
-const { requireScope, SCOPES } = require('../middleware/auth');
+const { requireAnalystRead } = require('../middleware/auth');
 const { errors } = require('../middleware/errors');
 const {
   assertWithinJurisdiction,
@@ -14,14 +15,16 @@ const {
   buildSubstationScope,
 } = require('../middleware/jurisdiction');
 
-const readScope = requireScope(SCOPES.READ);
+const readScope = requireAnalystRead;
 const router = express.Router();
 
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
 const SITE_TYPES = ['residential_rooftop', 'commercial_rooftop', 'industrial_rooftop', 'ground_mount'];
 const STATUSES = ['active', 'maintenance', 'decommissioned'];
 const READING_COLUMNS =
-  'r.id, r.installation_id, r."timestamp" AS timestamp, r.power_kw, r.energy_kwh, r.voltage, r.source';
+  'r.id, r.installation_id, r."timestamp" AS timestamp, r.power_kw, r.energy_kwh, r.voltage';
+const ANALYTICAL_DEFAULT_LIMIT = 50;
+const SORT_COLUMNS = { timestamp: 'r."timestamp"' };
 
 function parseIdParam(req, key, label) {
   const raw = req.params[key];
@@ -99,12 +102,12 @@ function parseTimestampQuery(req, name) {
   return raw;
 }
 
-function parsePagination(req) {
+function parsePagination(req, defaultLimit = config.api.defaultPageLimit) {
   const page = parseIntegerQuery(req, 'page', { min: 1, max: 100000, fallback: 1 });
   const limit = parseIntegerQuery(req, 'limit', {
     min: 1,
     max: config.api.maxPageLimit,
-    fallback: config.api.defaultPageLimit,
+    fallback: defaultLimit,
   });
   return { page, limit, offset: (page - 1) * limit };
 }
@@ -135,6 +138,30 @@ function buildEnvelope(req, data, totalCount, page, limit) {
 function round(value, decimals) {
   const factor = 10 ** decimals;
   return Math.round(value * factor) / factor;
+}
+
+function computeEtag(payload) {
+  return `"${crypto.createHash('sha1').update(JSON.stringify(payload)).digest('hex')}"`;
+}
+
+function ifNoneMatchMatches(headerValue, etag) {
+  if (typeof headerValue !== 'string' || headerValue === '') {
+    return false;
+  }
+  return headerValue
+    .split(',')
+    .map((candidate) => candidate.trim())
+    .some((candidate) => candidate === '*' || candidate === etag || candidate === `W/${etag}`);
+}
+
+function sendWithEtag(req, res, payload) {
+  const etag = computeEtag(payload);
+  res.set('ETag', etag);
+  if (ifNoneMatchMatches(req.get('if-none-match'), etag)) {
+    res.status(304).end();
+    return;
+  }
+  res.status(200).json(payload);
 }
 
 function mapInstallation(row) {
@@ -215,7 +242,7 @@ router.get('/provinces/:provinceId', readScope, (req, res, next) => {
     const districtCount = db
       .prepare(`SELECT COUNT(*) AS count FROM districts WHERE province_id = ?`)
       .get(provinceId).count;
-    res.json({ ...province, district_count: districtCount });
+    sendWithEtag(req, res, { ...province, district_count: districtCount });
   } catch (error) {
     next(error);
   }
@@ -265,7 +292,7 @@ router.get('/districts/:districtId', readScope, (req, res, next) => {
     const totalCapacityKw = db
       .prepare(`SELECT ROUND(COALESCE(SUM(capacity_kw), 0), 2) AS total FROM v_installation_context WHERE district_id = ?`)
       .get(districtId).total;
-    res.json({
+    sendWithEtag(req, res, {
       id: district.id,
       code: district.code,
       name: district.name,
@@ -283,7 +310,7 @@ router.get('/districts/:districtId/generation-summary', readScope, (req, res, ne
   try {
     const db = getDb();
     const districtId = parseIdParam(req, 'districtId', 'district-id');
-    loadDistrict(db, req.user, districtId);
+    const district = loadDistrict(db, req.user, districtId);
 
     const summary = db
       .prepare(
@@ -304,6 +331,7 @@ router.get('/districts/:districtId/generation-summary', readScope, (req, res, ne
 
     res.json({
       district_id: districtId,
+      district_name: district.name,
       current_total_power_kw: round(summary.current_total_power_kw, 2),
       today_total_energy_kwh: round(summary.today_total_energy_kwh, 2),
       installation_count: summary.installation_count,
@@ -364,7 +392,7 @@ router.get('/substations/:substationId', readScope, (req, res, next) => {
     const installationCount = db
       .prepare(`SELECT COUNT(*) AS count FROM solar_installations WHERE substation_id = ?`)
       .get(substationId).count;
-    res.json({
+    sendWithEtag(req, res, {
       id: substation.id,
       code: substation.code,
       name: substation.name,
@@ -433,7 +461,7 @@ router.get('/solar-installations/:installationId', readScope, (req, res, next) =
     const db = getDb();
     const installationId = parseIdParam(req, 'installationId', 'installation-id');
     const installation = loadInstallation(db, req.user, installationId);
-    res.json(mapInstallation(installation));
+    sendWithEtag(req, res, mapInstallation(installation));
   } catch (error) {
     next(error);
   }
@@ -445,7 +473,7 @@ router.get('/solar-installations/:installationId/readings', readScope, (req, res
     const installationId = parseIdParam(req, 'installationId', 'installation-id');
     loadInstallation(db, req.user, installationId);
 
-    const { page, limit, offset } = parsePagination(req);
+    const { page, limit, offset } = parsePagination(req, ANALYTICAL_DEFAULT_LIMIT);
     const startTime = parseTimestampQuery(req, 'start_time');
     const endTime = parseTimestampQuery(req, 'end_time');
     if (startTime !== null && endTime !== null && startTime > endTime) {
@@ -455,7 +483,7 @@ router.get('/solar-installations/:installationId/readings', readScope, (req, res
       });
     }
 
-    parseEnumQuery(req, 'sort', ['timestamp'], 'timestamp');
+    const sortColumn = SORT_COLUMNS[parseEnumQuery(req, 'sort', Object.keys(SORT_COLUMNS), 'timestamp')];
     const order = parseEnumQuery(req, 'order', ['asc', 'desc'], 'desc').toUpperCase();
 
     const clauses = ['r.installation_id = ?'];
@@ -478,7 +506,7 @@ router.get('/solar-installations/:installationId/readings', readScope, (req, res
         `SELECT ${READING_COLUMNS}
          FROM generation_readings r
          WHERE ${where}
-         ORDER BY r."timestamp" ${order}
+         ORDER BY ${sortColumn} ${order}
          LIMIT ? OFFSET ?`
       )
       .all(...params, limit, offset);
@@ -524,8 +552,10 @@ router.get('/solar-installations/:installationId/last-reading', readScope, (req,
     const reading = db
       .prepare(
         `SELECT ${READING_COLUMNS}
-         FROM v_installation_last_reading r
-         WHERE r.installation_id = ?`
+         FROM generation_readings r
+         WHERE r.installation_id = ?
+         ORDER BY r."timestamp" DESC
+         LIMIT 1`
       )
       .get(installationId);
     if (reading === undefined) {

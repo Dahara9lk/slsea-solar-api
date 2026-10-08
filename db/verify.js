@@ -135,8 +135,8 @@ function assertIdempotentIngestion(db) {
   }
   const insert = db.prepare(
     `INSERT INTO generation_readings
-       (installation_id, "timestamp", power_kw, energy_kwh, voltage, source)
-     VALUES (?, ?, 1.5, 0.375, 230, 'manual')`
+       (installation_id, "timestamp", power_kw, energy_kwh, voltage)
+     VALUES (?, ?, 1.5, 0.375, 230)`
   );
 
   let failure = null;

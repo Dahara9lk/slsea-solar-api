@@ -2,10 +2,10 @@
 
 const express = require('express');
 const { getDb } = require('../db/connection');
-const { requireScope, SCOPES } = require('../middleware/auth');
+const { requireInstallationWrite } = require('../middleware/auth');
 const { errors } = require('../middleware/errors');
 
-const deviceWrite = requireScope(SCOPES.WRITE);
+const deviceWrite = requireInstallationWrite;
 const router = express.Router();
 
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
@@ -73,18 +73,9 @@ function validateReadingBody(body) {
   };
 }
 
-router.post('/solar-installations/:installationId/readings', deviceWrite, (req, res, next) => {
+router.post('/solar-installations/:installation_id/readings', deviceWrite, (req, res, next) => {
   try {
-    const installationId = parseInstallationIdParam(req.params.installationId);
-
-    const tokenInstallationId = Number(req.user.installationId);
-    if (!Number.isSafeInteger(tokenInstallationId) || tokenInstallationId !== installationId) {
-      throw errors.deviceScopeMismatch({
-        token_installation_id: req.user.installationId === null ? null : tokenInstallationId,
-        requested_installation_id: installationId,
-        token_meter_id: req.user.meterId,
-      });
-    }
+    const installationId = parseInstallationIdParam(req.params.installation_id);
 
     const payload = validateReadingBody(req.body);
     const db = getDb();
@@ -101,9 +92,9 @@ router.post('/solar-installations/:installationId/readings', deviceWrite, (req, 
       result = db
         .prepare(
           `INSERT INTO generation_readings
-             (installation_id, "timestamp", power_kw, energy_kwh, voltage, source)
+             (installation_id, "timestamp", power_kw, energy_kwh, voltage)
            VALUES
-             (@installation_id, @timestamp, @power_kw, @energy_kwh, @voltage, 'meter')`
+             (@installation_id, @timestamp, @power_kw, @energy_kwh, @voltage)`
         )
         .run({
           installation_id: installationId,
@@ -139,7 +130,6 @@ router.post('/solar-installations/:installationId/readings', deviceWrite, (req, 
       power_kw: payload.powerKw,
       energy_kwh: payload.energyKwh,
       voltage: payload.voltage,
-      source: 'meter',
     });
   } catch (error) {
     next(error);
