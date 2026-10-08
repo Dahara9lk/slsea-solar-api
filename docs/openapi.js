@@ -166,7 +166,7 @@ module.exports = {
       '',
       '## Interactive documentation',
       '',
-      'Swagger UI is served at `/docs`; this document is available unauthenticated at `/openapi.json`.',
+      'Swagger UI is served at `/api-docs` (alias `/docs`); this document is available unauthenticated at `/openapi.json`.',
       '',
       '## Demo tokens',
       '',
