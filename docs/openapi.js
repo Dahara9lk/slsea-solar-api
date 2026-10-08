@@ -390,8 +390,9 @@ module.exports = {
         summary: 'Append a generation reading',
         description: [
           'Device write path. The token must carry the `installation-write` scope and its',
-          '`installation_id` claim must equal the `installation-id` in the URI, otherwise 403',
-          '`DEVICE_SCOPE_MISMATCH` is returned **before** any existence check is performed.',
+          '`installation_id` claim must equal the `installation_id` path parameter, otherwise 403',
+          '`FORBIDDEN` with `message: "Installation ID mismatch"` and',
+          '`detail: { expected, received }` is returned **before** any existence check is performed.',
           'A repeated timestamp for the same installation is rejected with 409 `DUPLICATE_READING`.',
         ].join(' '),
         security: [{ DeviceWrite: [] }],
@@ -411,7 +412,7 @@ module.exports = {
           400: VALIDATION_ERROR,
           401: UNAUTHORIZED,
           403: errorResponse(
-            'INSUFFICIENT_SCOPE (analyst token) or DEVICE_SCOPE_MISMATCH (token bound to another installation)'
+            'INSUFFICIENT_SCOPE (analyst token) or FORBIDDEN / "Installation ID mismatch" (token bound to another installation)'
           ),
           404: NOT_FOUND,
           409: errorResponse('A reading already exists for this installation and timestamp'),

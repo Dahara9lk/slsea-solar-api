@@ -3,7 +3,7 @@
 const express = require('express');
 const config = require('../config');
 const { getDb } = require('../db/connection');
-const { requireScope, SCOPES } = require('../middleware/auth');
+const { requireAnalystRead } = require('../middleware/auth');
 const { errors } = require('../middleware/errors');
 const {
   assertWithinJurisdiction,
@@ -14,7 +14,7 @@ const {
   buildSubstationScope,
 } = require('../middleware/jurisdiction');
 
-const readScope = requireScope(SCOPES.READ);
+const readScope = requireAnalystRead;
 const router = express.Router();
 
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;

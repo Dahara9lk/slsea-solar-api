@@ -34,13 +34,14 @@ const errors = {
   jurisdictionForbidden(message, detail) {
     return new ApiError(403, 'JURISDICTION_FORBIDDEN', message, detail);
   },
-  deviceScopeMismatch(detail) {
-    return new ApiError(
-      403,
-      'DEVICE_SCOPE_MISMATCH',
-      'The token is not authorised to write readings for this solar installation',
-      detail
-    );
+  forbidden(message, detail) {
+    return new ApiError(403, 'FORBIDDEN', message, detail);
+  },
+  installationIdMismatch(expected, received) {
+    return new ApiError(403, 'FORBIDDEN', 'Installation ID mismatch', {
+      expected,
+      received,
+    });
   },
   notFound(message, detail) {
     return new ApiError(404, 'RESOURCE_NOT_FOUND', message, detail);
